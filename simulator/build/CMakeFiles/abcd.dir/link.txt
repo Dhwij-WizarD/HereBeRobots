@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/abcd.dir/main.cpp.o -o abcd  libSimulator.a /usr/local/lib/libraylib.a -lm /usr/local/lib/libGeometry.a 

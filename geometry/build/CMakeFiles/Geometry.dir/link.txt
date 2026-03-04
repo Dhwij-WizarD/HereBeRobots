@@ -1,0 +1,2 @@
+/usr/bin/ar qc libGeometry.a CMakeFiles/Geometry.dir/src/geometry.cpp.o CMakeFiles/Geometry.dir/src/point.cpp.o CMakeFiles/Geometry.dir/src/vec2d.cpp.o CMakeFiles/Geometry.dir/src/curves/arc.cpp.o CMakeFiles/Geometry.dir/src/curves/line.cpp.o
+/usr/bin/ranlib libGeometry.a

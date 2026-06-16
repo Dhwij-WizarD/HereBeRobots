@@ -41,5 +41,10 @@ target_link_libraries(${PROJECT_NAME}
         Geometry::Geometry
 )
 
+
 add_executable(abcd main.cpp)
 target_link_libraries(abcd PRIVATE Simulator)
+
+install(TARGETS ${PROJECT_NAME} abcd
+  DESTINATION lib/${PROJECT_NAME}
+)

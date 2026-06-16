@@ -1,8 +1,17 @@
 #!/bin/bash
 set -e
+BUILD_TYPE=$1
+# === Clean build option ===
+if [ "$1" == "--clean" ]; then
+    echo "Cleaning previous build..."
+    rm -rf build install log
+    BUILD_TYPE=$2
+fi
 
-echo "Running Script 1..............................................................."
-bash /home/rosdev/ros2_ws/src/geometry/GeometryBuild.sh
+if [ "$BUILD_TYPE" == "" ]; then
+    BUILD_TYPE="Release"
+fi
 
-echo "Running Script 2..............................................................."
-bash /home/rosdev/ros2_ws/src/simulator/SimulatorBuild.sh
+colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE="$BUILD_TYPE"
+
+echo "$BUILD_TYPE"

@@ -1,0 +1,102 @@
+# =============================================================================
+# Dockerfile.sim2d
+# ROS 2 Jazzy — lightweight 2D simulator only, no GPU, no Gazebo
+# Runs on any machine (laptop, CI, WSL2, ARM)
+# Usage:   docker compose up sim2d
+# =============================================================================
+
+FROM ubuntu:22.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ROS_DISTRO=jazzy
+
+
+# ── USER CONFIGURATION ────────────────────────────────────────────────────────
+ARG USERNAME=rocket
+ARG UID=1000
+ARG GID=$UID
+
+
+# ── ROS INSTALLATION ────────────────────────────────────────────────────────
+RUN apt-get update -q \
+    && apt-get install -y \
+    python3 \
+    build-essential \
+    lsb-release \
+    wget
+
+RUN wget https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc -O /etc/apt/trusted.gpg.d/ros.asc \
+    && sh -c 'echo "deb http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" > /etc/apt/sources.list.d/ros2-latest.list' \
+    && apt-get update \
+    && apt-get install -y \
+    ros-${ROS_DISTRO}-ros-base \
+    ros-${ROS_DISTRO}-rclcpp \
+    python3-colcon-common-extensions \
+    ros-dev-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+
+# ── System deps (minimal — no Gazebo, no GUI) ─────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Build tools
+    cmake \
+    build-essential \
+    python3-colcon-common-extensions \
+    python3-rosdep \
+    # ROS2 core
+    ros-${ROS_DISTRO}-rclcpp \
+    ros-${ROS_DISTRO}-std-msgs \
+    ros-${ROS_DISTRO}-geometry-msgs \
+    ros-${ROS_DISTRO}-nav-msgs \
+    ros-${ROS_DISTRO}-sensor-msgs \
+    ros-${ROS_DISTRO}-tf2 \
+    ros-${ROS_DISTRO}-tf2-ros \
+    ros-${ROS_DISTRO}-tf2-geometry-msgs \
+    ros-${ROS_DISTRO}-action-msgs \
+    ros-${ROS_DISTRO}-rosidl-default-generators \
+    # BehaviorTree.CPP v4
+    ros-${ROS_DISTRO}-behaviortree-cpp \
+    # robot_localization for EKF reference
+    ros-${ROS_DISTRO}-robot-localization \
+    # Utilities
+    gh \
+    git \
+    tmux \
+    gdb \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── Entrypoint ────────────────────────────────────────────────────────────────
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# ── Switch to User ────────────────────────────────────────────────────────────
+RUN if ! getent group $GID >/dev/null 2>&1; then \
+      groupadd -g $GID $USERNAME; \
+    else \
+      GNAME=$(getent group $GID | cut -d: -f1); \
+      if [ "$GNAME" != "$USERNAME" ]; then \
+        groupmod -n $USERNAME $GNAME; \
+      fi; \
+    fi && \
+    if getent passwd $UID >/dev/null 2>&1; then \
+      UNAME=$(getent passwd $UID | cut -d: -f1); \
+      if [ "$UNAME" != "$USERNAME" ]; then \
+        userdel -r $UNAME 2>/dev/null || true; \
+      fi; \
+    fi && \
+    if ! id -u $USERNAME >/dev/null 2>&1; then \
+      useradd -lm -u $UID -g $USERNAME -s /bin/bash $USERNAME; \
+    fi && \
+    echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+RUN mkdir -p /home/$USERNAME/HereBeRobots/src
+WORKDIR /home/$USERNAME/HereBeRobots/
+
+#Setup environment
+RUN echo 'source /opt/ros/jazzy/setup.bash' >> /home/$USERNAME/.bashrc && \
+    echo 'source /home/'$USERNAME'/dev_ws/install/setup.bash' >> /home/$USERNAME/.bashrc
+
+USER $USERNAME
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["bash"]

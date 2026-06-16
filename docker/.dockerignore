@@ -1,0 +1,28 @@
+# =============================================================================
+# .dockerignore — keep build context lean
+# =============================================================================
+
+# Build artefacts
+build/
+install/
+log/
+**/__pycache__/
+**/*.pyc
+
+# Dev tooling
+.git/
+.github/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docs / media (not needed in image)
+docs/
+*.md
+*.gif
+*.mp4
+*.png
+
+# CI
+.github/

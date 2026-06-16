@@ -1,0 +1,100 @@
+# =============================================================================
+# docker-compose.yml — ros2_nav_stack
+#
+# Two backends, same nav stack:
+#   docker compose up sim2d    ← any machine, no GPU
+#   docker compose up gazebo   ← full Gazebo Harmonic sim
+#
+# Override planner / controller at launch time with env vars:
+#   GLOBAL_PLANNER=hybrid_astar CONTROLLER=mpc docker compose up sim2d
+# =============================================================================
+
+x-common: &common
+  build:
+    context: .
+  environment:
+    - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-42}
+    - RCUTILS_COLORIZED_OUTPUT=1
+  volumes:
+    # Live-reload source without rebuild during development
+    - ./:/ros2_ws/src/ros2_nav_stack
+  network_mode: host
+  stdin_open: true
+  tty: true
+
+services:
+
+  # ── Lightweight 2D simulator (default, any machine) ─────────────────────────
+  sim2d:
+    <<: *common
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.sim2d
+    container_name: nav_sim2d
+    environment:
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-42}
+      - RCUTILS_COLORIZED_OUTPUT=1
+      - SIM_BACKEND=sim2d
+      - GLOBAL_PLANNER=${GLOBAL_PLANNER:-hybrid_astar}
+      - LOCAL_PLANNER=${LOCAL_PLANNER:-dwa}
+      - CONTROLLER=${CONTROLLER:-pure_pursuit}
+    command: >
+      bash -c "ros2 launch nav_bringup nav_stack.launch.py
+               sim_backend:=sim2d
+               global_planner:=${GLOBAL_PLANNER:-hybrid_astar}
+               local_planner:=${LOCAL_PLANNER:-dwa}
+               controller:=${CONTROLLER:-pure_pursuit}"
+
+  # ── Full Gazebo Harmonic simulation ─────────────────────────────────────────
+  gazebo:
+    <<: *common
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.gazebo
+    container_name: nav_gazebo
+    environment:
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-42}
+      - RCUTILS_COLORIZED_OUTPUT=1
+      - SIM_BACKEND=gazebo
+      - GLOBAL_PLANNER=${GLOBAL_PLANNER:-hybrid_astar}
+      - LOCAL_PLANNER=${LOCAL_PLANNER:-dwa}
+      - CONTROLLER=${CONTROLLER:-pure_pursuit}
+      # GUI display — set DISPLAY on host, or use VNC/X11 forwarding
+      - DISPLAY=${DISPLAY:-:0}
+    volumes:
+      - ./:/ros2_ws/src/ros2_nav_stack
+      # X11 socket for Gazebo + RViz2 on Linux host
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    command: >
+      bash -c "ros2 launch nav_bringup nav_stack.launch.py
+               sim_backend:=gazebo
+               global_planner:=${GLOBAL_PLANNER:-hybrid_astar}
+               local_planner:=${LOCAL_PLANNER:-dwa}
+               controller:=${CONTROLLER:-pure_pursuit}"
+    # Uncomment if host has NVIDIA GPU and nvidia-container-toolkit installed:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  # ── RViz2 — run separately to avoid X11 dependency in nav containers ────────
+  rviz:
+    <<: *common
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.gazebo
+    container_name: nav_rviz
+    environment:
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-42}
+      - DISPLAY=${DISPLAY:-:0}
+    volumes:
+      - ./:/ros2_ws/src/ros2_nav_stack
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    command: >
+      bash -c "ros2 run rviz2 rviz2
+               -d /ros2_ws/src/ros2_nav_stack/nav_bringup/config/rviz_config.rviz"
+    profiles:
+      - viz

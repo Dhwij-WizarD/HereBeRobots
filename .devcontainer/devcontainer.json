@@ -1,10 +1,10 @@
 {
   "name": "ROS 2 Workspace humble-ros-base",
-  "remoteUser": "rosdev",
+  "remoteUser": "rocket",
   "build": {
-      "dockerfile": "Dockerfile",
+      "dockerfile": "../docker/Dockerfile.gazebo",
       "args": {
-          "USERNAME": "rosdev",
+          "USERNAME": "rocket",
           "GID": "1000",
           "UID": "1000"
       }
@@ -32,8 +32,8 @@
           }
       }
   },
-  "workspaceFolder": "/home/rosdev/ros2_ws",
-  "workspaceMount": "source=${localWorkspaceFolder},target=/home/rosdev/ros2_ws/src,type=bind",
+  "workspaceFolder": "/home/rocket/HereBeRobots/",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/home/rocket/HereBeRobots,type=bind",
   "mounts": [],
   "runArgs": [
       "--net=host"

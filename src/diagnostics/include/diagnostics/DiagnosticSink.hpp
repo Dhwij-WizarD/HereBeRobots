@@ -11,7 +11,7 @@
 #include <diagnostics/Status.hpp>
 #include <fstream>
 
-namespace Diagnostics
+namespace HBR::Diagnostics
 {
     class DiagnosticSink
     {

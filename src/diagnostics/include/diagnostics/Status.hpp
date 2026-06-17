@@ -12,9 +12,9 @@
 #include <tl/expected.hpp>
 
 
-namespace Diagnostics
+namespace HBR::Diagnostics
 {
-    enum STATUS
+    enum STATUS : int32_t
     {
         OK               = 0,
         WARN             = 1,
@@ -36,7 +36,7 @@ namespace Diagnostics
         NODE_OFFLINE     = 17
     };
 
-    static const std::unordered_map<int, std::string> STATUS_LUT =
+    static const std::unordered_map<int32_t, std::string> STATUS_LUT =
     {
         {OK               , "STATUS_OK"},
         {WARN             , "WARNING"},

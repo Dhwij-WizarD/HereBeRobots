@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(diagnostics)
+project(localizer)
 
 # Enable additional compiler warnings for GCC/Clang
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -14,29 +14,29 @@ set(CMAKE_BUILD_TYPE "Release")
 # Find ament and other dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(std_srvs REQUIRED)
-find_package(std_msgs REQUIRED)
-find_package(geometry_msgs REQUIRED)
-
+find_package(diagnostics REQUIRED)
+find_package(localizer_interfaces REQUIRED)
 
 include_directories(include/)
 
 set(SOURCES
-  src/DiagnosticSink.cpp
+  src/main.cpp
 )
 
-add_library(${PROJECT_NAME} ${SOURCES})
+add_executable(${PROJECT_NAME} ${SOURCES})
 
-target_compile_features(${PROJECT_NAME} PUBLIC c_std_99 cxx_std_20)
-
-# -------------------------------------------------------------------
-# Install targets and headers
-# -------------------------------------------------------------------
-install(TARGETS ${PROJECT_NAME}
-  DESTINATION lib/${PROJECT_NAME}
+ament_target_dependencies(${PROJECT_NAME}
+  rclcpp
+  diagnostics
+  localizer_interfaces
 )
 
-install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(
+  TARGETS
+    ${PROJECT_NAME}
+  DESTINATION
+    lib/${PROJECT_NAME}
+)
 
 # -------------------------------------------------------------------
 # Testing and Linting (if enabled)

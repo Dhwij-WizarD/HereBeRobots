@@ -19,9 +19,10 @@ namespace HBR::Localizer
     public:
         Manager() = default;
         ~Manager() = default;
-        void Spin();
-        STATUS Init();
-        STATUS Deinit();
+        STATUS Prepare();
+        STATUS Cleanup();
+        STATUS Start();
+        STATUS Stop();
     private:
         rclcpp::Node::SharedPtr pNode;
     };

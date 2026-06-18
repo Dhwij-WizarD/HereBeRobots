@@ -57,15 +57,15 @@ namespace HBR::Diagnostics
         {NODE_OFFLINE     , "NODE IS OFFLINE"}
     };
 
-    struct Status
+    struct Log
     {
-        Status () : status(OK), message("") {}
-        Status(STATUS status, std::string message) : status(status), message(message) {}
+        Log () : status(OK), message("") {}
+        Log(STATUS status, std::string message) : status(status), message(message) {}
         STATUS status {OK};
         std::string message {STATUS_LUT.at(OK)};
     };
 
     template<typename T>
-    using Result = tl::expected<T, Status>;
-    using Failure = tl::unexpected<Status>;
+    using Result = tl::expected<T, Log>;
+    using Failure = tl::unexpected<Log>;
 }

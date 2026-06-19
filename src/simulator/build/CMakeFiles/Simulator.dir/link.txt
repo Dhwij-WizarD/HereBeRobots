@@ -1,2 +1,0 @@
-/usr/bin/ar qc libSimulator.a CMakeFiles/Simulator.dir/src/entity.cpp.o CMakeFiles/Simulator.dir/src/obstacle.cpp.o CMakeFiles/Simulator.dir/src/robot.cpp.o CMakeFiles/Simulator.dir/src/world.cpp.o
-/usr/bin/ranlib libSimulator.a

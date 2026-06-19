@@ -9,16 +9,17 @@ namespace HBR::Simulator
 class Robot : public Entity
 {
 private:
+
 public:
-    int id;
-    const char *name;
-    int length, width;
-    std::vector<int> color{0, 0, 0, 255}; //{R,G,B,A}
+  int id;
+  const char *name;
+  int length, width;
+  std::vector<int> color{0, 0, 0, 255};   //{R,G,B,A}
 
-    Robot() {};
-    Robot(int idd, char *nm, int l, int w, std::vector<int> clr);
+  Robot() {}
+  Robot(int idd, char *nm, int l, int w, std::vector<int> clr);
 
-    ~Robot();
+  ~Robot();
 
 protected:
 };

@@ -1,54 +1,98 @@
 #pragma once
 #include <communication/Concepts.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <future>
 #include <thread>
 #include <mutex>
-#include <condition_variable>
+#include <unordered_map>
 
 namespace HBR::Communication
 {
-    class RosCommunicatorApp
-    {
-    public:
-        RosCommunicatorApp() = default;
-        ~RosCommunicatorApp();
+class RosCommunicatorApp
+{
+public:
+  RosCommunicatorApp() = default;
+  ~RosCommunicatorApp();
 
-        STATUS Setup(int argc, char** argv);
+  STATUS Setup(int argc, char ** argv);
 
-        STATUS Login(const std::string& id);
-        STATUS Logout();
+  STATUS Login(const std::string & id);
+  STATUS Logout();
 
-        template<typename MSG>
-        STATUS CreatePublisher(const std::string& name);
-        template<typename MSG>
-        STATUS CreateSubscriber(const std::string& name, Callback<MSG>);
+  template<typename MSG>
+  STATUS CreatePublisher(const std::string & name)
+  {
+    if (!pNode) {return UNINITIALIZED;}
+    publishers[name] = pNode->create_publisher<MSG>(name, 10);
+    return OK;
+  }
 
-        STATUS DeletePublisher(const std::string& name);
-        STATUS DeleteSubscriber(const std::string& name);
+  template<typename MSG>
+  rclcpp::Publisher<MSG>::SharedPtr GetPublisher(const std::string & name)
+  {
+    auto it = publishers.find(name);
+    if (!pNode || it == publishers.end()) {return nullptr;}
+    return std::static_pointer_cast<rclcpp::Publisher<MSG>>(it->second);
+  }
 
-        template<typename REQ, typename RES>
-        STATUS CreateClient(const std::string& name);
-        template<typename REQ, typename RES>
-        STATUS CreateService(const std::string& name, ResponderCallback<REQ, RES> rcb);
+  template<typename MSG>
+  STATUS CreateSubscriber(const std::string & name, Callback<MSG> cb)
+  {
+    if (!pNode) {return UNINITIALIZED;}
+    subscribers[name] = pNode->create_subscription<MSG>(
+                name, 10,
+      [cb](const MSG & msg) {cb(msg);});
+    return OK;
+  }
 
-        STATUS DeleteClient(const std::string& name);
-        STATUS DeleterService(const std::string& name);
+  STATUS DeletePublisher(const std::string & name);
+  STATUS DeleteSubscriber(const std::string & name);
 
-        void Run();
+  template<typename SRV>
+  STATUS CreateClient(const std::string & name)
+  {
+    if (!pNode) {return UNINITIALIZED;}
+    clients[name] = pNode->create_client<SRV>(name);
+    return OK;
+  }
 
-    private:
-        enum class ThreadState { Idle, Running };
+  template<typename SRV>
+  STATUS CreateService(
+    const std::string & name,
+    ResponderCallback<typename SRV::Request, typename SRV::Response> rcb)
+  {
+    if (!pNode) {return UNINITIALIZED;}
+    services[name] = pNode->create_service<SRV>(
+                name,
+      [rcb](typename SRV::Request::SharedPtr req,
+      typename SRV::Response::SharedPtr res)
+      {*res = rcb(*req);});
+    return OK;
+  }
 
-        std::thread t;
-        std::mutex mtx;
-        std::condition_variable cv;
-        ThreadState state { ThreadState::Idle };
+  STATUS DeleteClient(const std::string & name);
+  STATUS DeleterService(const std::string & name);
 
-        rclcpp::Node::SharedPtr pNode;
-        rclcpp::executors::MultiThreadedExecutor executor;
-        rclcpp::CallbackGroup::SharedPtr sharedGroup;
-        rclcpp::CallbackGroup::SharedPtr clientGroup;
-    };
+private:
+  enum class ThreadState { Idle, Running };
 
-    static_assert(CommunicatorApp<RosCommunicatorApp>);
+  void Run();
+
+  std::thread t;
+  std::mutex mtx;
+  ThreadState state {ThreadState::Idle};
+  std::promise<void> spinStarted;
+
+  rclcpp::Node::SharedPtr pNode;
+  std::unique_ptr<rclcpp::executors::MultiThreadedExecutor> pExecutor;
+  rclcpp::CallbackGroup::SharedPtr sharedGroup;
+  rclcpp::CallbackGroup::SharedPtr clientGroup;
+
+  std::unordered_map<std::string, rclcpp::PublisherBase::SharedPtr> publishers;
+  std::unordered_map<std::string, rclcpp::SubscriptionBase::SharedPtr> subscribers;
+  std::unordered_map<std::string, rclcpp::ClientBase::SharedPtr> clients;
+  std::unordered_map<std::string, rclcpp::ServiceBase::SharedPtr> services;
+};
+
+static_assert(CommunicatorApp<RosCommunicatorApp>);
 } // namespace HBR::Communication

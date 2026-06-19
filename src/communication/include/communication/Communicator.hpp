@@ -5,5 +5,5 @@
 
 namespace HBR::Communication
 {
-    using Communicator_VT = std::variant<RosCommunicatorApp>; // suffix _VT = Variant Type
+using Communicator_VT = std::variant<RosCommunicatorApp>;     // suffix _VT = Variant Type
 }

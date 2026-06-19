@@ -2,3 +2,6 @@
 log/
 build/
 install/
+build.log
+test.log
+test-result.log

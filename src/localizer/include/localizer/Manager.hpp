@@ -12,18 +12,19 @@
 
 namespace HBR::Localizer
 {
-    using namespace Diagnostics;
+using namespace Diagnostics;
 
-    class final Manager
-    {
-    public:
-        Manager() = default;
-        ~Manager() = default;
-        STATUS Prepare();
-        STATUS Cleanup();
-        STATUS Start();
-        STATUS Stop();
-    private:
-        rclcpp::Node::SharedPtr pNode;
-    };
+class final Manager
+{
+public:
+  Manager() = default;
+  ~Manager() = default;
+  STATUS Prepare();
+  STATUS Cleanup();
+  STATUS Start();
+  STATUS Stop();
+
+private:
+  rclcpp::Node::SharedPtr pNode;
+};
 }

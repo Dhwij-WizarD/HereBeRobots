@@ -13,13 +13,15 @@
 
 namespace HBR::Diagnostics
 {
-    class DiagnosticSink
-    {
-    public:
-        DiagnosticSink() = default;
-        STATUS Init(const std::string& file) noexcept;
-    protected:
-    private:
-        std::fstream file;
-    };
+class DiagnosticSink
+{
+public:
+  DiagnosticSink() = default;
+  STATUS Init(const std::string & file) noexcept;
+
+protected:
+
+private:
+  std::fstream file;
+};
 }

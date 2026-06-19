@@ -19,15 +19,17 @@ find_package(diagnostics REQUIRED)
 include_directories(include/)
 
 set(SOURCES
-  src/main.cpp
+  src/RosCommunicatorApp.cpp
+  src/Communicator.cpp
 )
 
-add_executable(${PROJECT_NAME} ${SOURCES})
+add_library(${PROJECT_NAME} ${SOURCES})
+
+target_link_libraries(${PROJECT_NAME} diagnostics)
 
 ament_target_dependencies(${PROJECT_NAME}
   rclcpp
   diagnostics
-  localizer_interfaces
 )
 
 install(

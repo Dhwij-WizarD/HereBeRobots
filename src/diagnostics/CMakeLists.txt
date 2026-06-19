@@ -33,10 +33,13 @@ target_compile_features(${PROJECT_NAME} PUBLIC c_std_99 cxx_std_20)
 # Install targets and headers
 # -------------------------------------------------------------------
 install(TARGETS ${PROJECT_NAME}
-  DESTINATION lib/${PROJECT_NAME}
+  DESTINATION lib
 )
 
-install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(DIRECTORY include/ DESTINATION include)
+
+ament_export_include_directories(include)
+ament_export_libraries(${PROJECT_NAME})
 
 # -------------------------------------------------------------------
 # Testing and Linting (if enabled)

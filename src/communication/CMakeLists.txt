@@ -62,19 +62,19 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   find_package(std_srvs REQUIRED)
 
-  ament_add_gtest(test_ros_communicator_app
-    test/test_ros_communicator_app.cpp
-  )
-  target_include_directories(test_ros_communicator_app PRIVATE include/)
-  ament_target_dependencies(test_ros_communicator_app
-    rclcpp
-    std_msgs
-    std_srvs
-    diagnostics
-  )
-  target_link_libraries(test_ros_communicator_app
-    ${PROJECT_NAME}
-  )
+  ament_add_gtest(test_ros_communicator_app test/test_ros_communicator_app.cpp)
+  ament_add_gtest(test_communicator test/test_communicator.cpp)
+
+  foreach(test_target test_ros_communicator_app test_communicator)
+    target_include_directories(${test_target} PRIVATE include/)
+    ament_target_dependencies(${test_target}
+      rclcpp
+      std_msgs
+      std_srvs
+      diagnostics
+    )
+    target_link_libraries(${test_target} ${PROJECT_NAME})
+  endforeach()
 endif()
 
 # Export the runtime dependencies for the generated messages.

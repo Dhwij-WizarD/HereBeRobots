@@ -149,27 +149,58 @@ concept StreamerApp =
   {app.LeaveStream(name)}->std::same_as<STATUS>;
 };
 
+struct ProxyStreamerApp
+{
+  STATUS Login(const std::string & name);
+  STATUS Logout();
+  template<typename T>
+  STATUS CreateStream(const std::string & name);
+  STATUS DeleteStream(const std::string & name);
+  template<typename T>
+  STATUS JoinStream(const std::string & name);
+  STATUS LeaveStream(const std::string & name);
+};
+
+static_assert(StreamerApp<ProxyStreamerApp>);
+
+    // Proxy type that satisfies FullCommunicatorApp (CommunicatorApp + StreamerApp).
+struct ProxyFullCommunicatorApp : ProxyStreamerApp
+{
+  STATUS Setup(int, char **);
+  template<typename T>
+  STATUS CreatePublisher(const std::string &);
+  template<typename T>
+  STATUS CreateSubscriber(const std::string &, Callback<T>);
+  STATUS DeletePublisher(const std::string &);
+  STATUS DeleteSubscriber(const std::string &);
+  template<typename SRV>
+  STATUS CreateClient(const std::string &);
+  template<typename SRV>
+  STATUS CreateService(
+    const std::string &,
+    ResponderCallback<typename SRV::Request, typename SRV::Response>);
+  STATUS DeleteClient(const std::string &);
+  STATUS DeleterService(const std::string &);
+};
+
 template<typename T>
 concept FullCommunicatorApp =
   CommunicatorApp<T>&& StreamerApp<T>;
 
+static_assert(FullCommunicatorApp<ProxyFullCommunicatorApp>);
+
 template<typename T, typename M, typename C, typename FC, typename S>
-concept Communicator =
+concept CommunicatorInterface =
   MessengerApp<M>&& CommunicatorApp<C>&& FullCommunicatorApp<FC>&& StreamerApp<S>&&
   requires(
         T communicator,
-        M messengerApp,
-        C communicatorApp,
-        S streamingApp,
-        FC fullCommunicatorApp,
         const std::string & name
   )
     {
-  {communicator.InstallMessengerApp(messengerApp, name)}->std::same_as<STATUS>;
-  {communicator.InstallCommunicatorApp(communicatorApp, name)}->std::same_as<STATUS>;
-  {communicator.InstallFullCommunicatorApp(fullCommunicatorApp, name)}->std::same_as<STATUS>;
-  {communicator.InstallStreamingApp(streamingApp, name)}->std::same_as<STATUS>;
+  {communicator.template InstallMessengerApp<M>(name)}->std::same_as<STATUS>;
+  {communicator.template InstallCommunicatorApp<C>(name)}->std::same_as<STATUS>;
+  {communicator.template InstallFullCommunicatorApp<FC>(name)}->std::same_as<STATUS>;
+  {communicator.template InstallStreamingApp<S>(name)}->std::same_as<STATUS>;
   {communicator.UninstallApp(name)}->std::same_as<STATUS>;
-  {communicator.Run()}->std::same_as<void>;
 };
 }

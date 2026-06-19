@@ -14,6 +14,7 @@ STATUS RosCommunicatorApp::Setup(int argc, char ** argv)
 RosCommunicatorApp::~RosCommunicatorApp()
 {
   Logout();
+  rclcpp::shutdown();
 }
 
 STATUS RosCommunicatorApp::Login(const std::string & id)

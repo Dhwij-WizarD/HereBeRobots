@@ -16,6 +16,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(diagnostics REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 
 include_directories(include/)
 
@@ -29,6 +30,7 @@ add_library(${PROJECT_NAME} ${SOURCES})
 ament_target_dependencies(${PROJECT_NAME}
   rclcpp
   diagnostics
+  std_srvs
 )
 
 install(
@@ -41,10 +43,10 @@ install(
 # -------------------------------------------------------------------
 # Pub/Sub integration test executables
 # -------------------------------------------------------------------
-foreach(app pub_app sub_app)
+foreach(app pub_app sub_app client_app service_app)
   add_executable(${app} test/${app}.cpp)
   target_include_directories(${app} PRIVATE include/)
-  ament_target_dependencies(${app} rclcpp std_msgs diagnostics)
+  ament_target_dependencies(${app} rclcpp std_msgs std_srvs diagnostics)
   target_link_libraries(${app} ${PROJECT_NAME})
   install(TARGETS ${app} DESTINATION lib/${PROJECT_NAME})
 endforeach()

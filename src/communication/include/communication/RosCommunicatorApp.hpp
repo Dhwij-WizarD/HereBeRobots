@@ -48,7 +48,7 @@ public:
   STATUS DeletePublisher(const std::string & name);
   STATUS DeleteSubscriber(const std::string & name);
 
-  template<typename SRV>
+  template<ServiceInterface SRV>
   STATUS CreateClient(const std::string & name)
   {
     if (!pNode) {return UNINITIALIZED;}
@@ -56,7 +56,15 @@ public:
     return OK;
   }
 
-  template<typename SRV>
+  template<ServiceInterface SRV>
+  rclcpp::Client<SRV>::SharedPtr GetClient(const std::string & name)
+  {
+    auto it = clients.find(name);
+    if (!pNode || it == clients.end()) {return nullptr;}
+    return std::static_pointer_cast<rclcpp::Client<SRV>>(it->second);
+  }
+
+  template<ServiceInterface SRV>
   STATUS CreateService(
     const std::string & name,
     ResponderCallback<typename SRV::Request, typename SRV::Response> rcb)

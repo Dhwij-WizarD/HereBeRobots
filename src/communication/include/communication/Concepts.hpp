@@ -5,6 +5,7 @@
 #include <string>
 #include <variant>
 #include <diagnostics/Status.hpp>
+#include <std_srvs/srv/trigger.hpp>
 
 namespace HBR::Communication
 {
@@ -71,13 +72,7 @@ concept ServiceInterface =
 };
 
     // Proxy service type for single-template-param concept checks.
-struct ProxyServiceInterface
-{
-  struct Request {};
-  struct Response {};
-};
-
-static_assert(ServiceInterface<ProxyServiceInterface>);
+static_assert(ServiceInterface<std_srvs::srv::Trigger>);
 
 template<typename T>
 concept HasCreateClientDualParam =
@@ -90,7 +85,7 @@ template<typename T>
 concept HasCreateClientSingleParam =
   requires(T comm, const std::string & name)
     {
-  {comm.template CreateClient<ProxyServiceInterface>(name)}->std::same_as<STATUS>;
+  {comm.template CreateClient<std_srvs::srv::Trigger>(name)}->std::same_as<STATUS>;
 };
 
 template<typename T>
@@ -103,9 +98,9 @@ concept HasCreateServiceDualParam =
 template<typename T>
 concept HasCreateServiceSingleParam =
   requires(T comm, const std::string & name,
-    ResponderCallback<ProxyServiceInterface::Request, ProxyServiceInterface::Response> rcb)
+    ResponderCallback<std_srvs::srv::Trigger::Request, std_srvs::srv::Trigger::Response> rcb)
     {
-  {comm.template CreateService<ProxyServiceInterface>(name, rcb)}->std::same_as<STATUS>;
+  {comm.template CreateService<std_srvs::srv::Trigger>(name, rcb)}->std::same_as<STATUS>;
 };
 
 template<typename T>
@@ -114,8 +109,9 @@ concept CommunicatorApp =
   (HasCreateClientDualParam<T>|| HasCreateClientSingleParam<T>) &&
   (HasCreateServiceDualParam<T>|| HasCreateServiceSingleParam<T>) &&
   requires(T comm, const std::string & name)
-        {
-            &T::Setup;
+    {
+  &T::Setup;
+  {comm.template GetClient<std_srvs::srv::Trigger>(name)};
   {comm.DeleteClient(name)}->std::same_as<STATUS>;
   {comm.DeleterService(name)}->std::same_as<STATUS>;
 };
@@ -181,6 +177,8 @@ struct ProxyFullCommunicatorApp : ProxyStreamerApp
     ResponderCallback<typename SRV::Request, typename SRV::Response>);
   STATUS DeleteClient(const std::string &);
   STATUS DeleterService(const std::string &);
+  template<typename SRV>
+  void * GetClient(const std::string &);
 };
 
 template<typename T>

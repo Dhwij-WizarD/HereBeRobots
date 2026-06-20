@@ -31,6 +31,7 @@ ament_target_dependencies(${PROJECT_NAME}
   rclcpp
   diagnostics
   std_srvs
+  std_msgs
 )
 
 install(
@@ -43,7 +44,7 @@ install(
 # -------------------------------------------------------------------
 # Pub/Sub integration test executables
 # -------------------------------------------------------------------
-foreach(app pub_app sub_app client_app service_app)
+foreach(app pub_app sub_app client_app async_client_app service_app)
   add_executable(${app} test/${app}.cpp)
   target_include_directories(${app} PRIVATE include/)
   ament_target_dependencies(${app} rclcpp std_msgs std_srvs diagnostics)
@@ -64,10 +65,11 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   find_package(std_srvs REQUIRED)
 
+  ament_add_gtest(test_concepts test/test_concepts.cpp)
   ament_add_gtest(test_ros_communicator_app test/test_ros_communicator_app.cpp)
   ament_add_gtest(test_communicator test/test_communicator.cpp)
 
-  foreach(test_target test_ros_communicator_app test_communicator)
+  foreach(test_target test_concepts test_ros_communicator_app test_communicator)
     target_include_directories(${test_target} PRIVATE include/)
     ament_target_dependencies(${test_target}
       rclcpp

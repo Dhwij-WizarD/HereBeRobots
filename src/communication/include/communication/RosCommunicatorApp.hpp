@@ -7,18 +7,22 @@
 #include <optional>
 #include <thread>
 #include <unordered_map>
+#include <std_msgs/msg/empty.hpp>
+#include <std_srvs/srv/trigger.hpp>
 
 namespace HBR::Communication
 {
 
 // ---------------------------------------------------------------------------
-// RosPublisher<MSG> — adapter satisfying Publisher<RosPublisher<MSG>, MSG>.
+// RosPublisher<MSG> — adapter satisfying Publisher<RosPublisher<MSG>>.
 // Returned by GetPublisher<MSG>(); nodes call Publish() without touching rclcpp.
 // ---------------------------------------------------------------------------
 template<typename MSG>
 class RosPublisher
 {
 public:
+  using MessageType = MSG;
+
   explicit RosPublisher(typename rclcpp::Publisher<MSG>::SharedPtr pub)
   : pPub(std::move(pub)) {}
 
@@ -33,13 +37,15 @@ private:
 };
 
 // ---------------------------------------------------------------------------
-// RosClient<SRV> — adapter satisfying Client<RosClient<SRV>, SRV>.
+// RosClient<SRV> — adapter satisfying Client<RosClient<SRV>>.
 // WaitForService / Request are the only APIs nodes should call.
 // ---------------------------------------------------------------------------
 template<typename SRV>
 class RosClient
 {
 public:
+  using ServiceType = SRV;
+
   explicit RosClient(typename rclcpp::Client<SRV>::SharedPtr client)
   : pClient(std::move(client)) {}
 
@@ -56,6 +62,26 @@ public:
       std::make_shared<typename SRV::Request>(req));
     if (future.wait_for(timeout) != std::future_status::ready) {return std::nullopt;}
     return *future.get();
+  }
+
+  STATUS AsyncRequest(
+    const typename SRV::Request & req,
+    std::chrono::nanoseconds timeout,
+    std::function<STATUS(const typename SRV::Response &)> responseCallback,
+    std::function<STATUS()> timeoutHandler = [] {return OK;}
+  )
+  {
+    auto future = pClient->async_send_request(
+      std::make_shared<typename SRV::Request>(req));
+    std::thread(
+      [future = std::move(future), timeout, responseCallback, timeoutHandler]() mutable {
+        if (future.wait_for(timeout) == std::future_status::ready) {
+          responseCallback(*future.get());
+        } else {
+          timeoutHandler();
+        }
+      }).detach();
+    return OK;
   }
 
 private:
@@ -162,5 +188,7 @@ private:
   std::unordered_map<std::string, rclcpp::ServiceBase::SharedPtr> services;
 };
 
+// Verify RosCommunicatorApp satisfies the app concepts.
+static_assert(MessengerApp<RosCommunicatorApp>);
 static_assert(CommunicatorApp<RosCommunicatorApp>);
 } // namespace HBR::Communication

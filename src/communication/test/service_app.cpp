@@ -18,6 +18,7 @@ static std_srvs::srv::Trigger::Response onTrigger(const std_srvs::srv::Trigger::
   std_srvs::srv::Trigger::Response res;
   res.success = true;
   res.message = "Whatzupp!";
+  std::this_thread::sleep_for(std::chrono::seconds(10));
   return res;
 }
 

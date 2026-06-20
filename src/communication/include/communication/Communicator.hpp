@@ -38,21 +38,24 @@ using StreamerApp_VT = std::variant<
 class Communicator
 {
 public:
-  template<MessengerApp M>
+  template<typename M>
+  requires MessengerApp<M>
   STATUS InstallMessengerApp(const std::string & name)
   {
     messengers[name] = std::make_unique<M>();
     return OK;
   }
 
-  template<CommunicatorApp C>
+  template<typename C>
+  requires CommunicatorApp<C>
   STATUS InstallCommunicatorApp(const std::string & name)
   {
     communicators[name] = std::make_unique<C>();
     return OK;
   }
 
-  template<FullCommunicatorApp FC>
+  template<typename FC>
+  requires FullCommunicatorApp<FC>
   STATUS InstallFullCommunicatorApp(const std::string & name)
   {
     fullCommunicators[name] = std::make_unique<FC>();
@@ -74,7 +77,8 @@ public:
   }
 
   // Retrieve a typed messenger app by name. Returns nullptr if not found or wrong type.
-  template<MessengerApp M>
+  template<typename M>
+  requires MessengerApp<M>
   M * GetMessengerApp(const std::string & name)
   {
     auto it = messengers.find(name);
@@ -83,7 +87,8 @@ public:
     return ptr ? ptr->get() : nullptr;
   }
 
-  template<CommunicatorApp C>
+  template<typename C>
+  requires CommunicatorApp<C>
   C * GetCommunicatorApp(const std::string & name)
   {
     auto it = communicators.find(name);
@@ -98,12 +103,4 @@ private:
   std::unordered_map<std::string, FullCommunicatorApp_VT> fullCommunicators;
   std::unordered_map<std::string, StreamerApp_VT> streamers;
 };
-
-static_assert(
-  CommunicatorInterface<Communicator,
-  RosCommunicatorApp,
-  RosCommunicatorApp,
-  ProxyFullCommunicatorApp,
-  ProxyStreamerApp>);
-
 } // namespace HBR::Communication

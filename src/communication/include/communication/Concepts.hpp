@@ -1,7 +1,10 @@
 #pragma once
 
+#include <chrono>
 #include <concepts>
 #include <functional>
+#include <memory>
+#include <optional>
 #include <string>
 #include <variant>
 #include <diagnostics/Status.hpp>
@@ -16,7 +19,6 @@ template<typename T, typename MessageT>
 concept Publisher =
   requires(T publisher, const MessageT & message)
     {
-        &T::Setup;
   {publisher.Publish(message)}->std::same_as<STATUS>;
 };
 
@@ -74,6 +76,18 @@ concept ServiceInterface =
     // Proxy service type for single-template-param concept checks.
 static_assert(ServiceInterface<std_srvs::srv::Trigger>);
 
+    // Satisfied by any client handle returned by GetClient<SRV>().
+    // WaitForService blocks until the server is discoverable or timeout expires.
+    // Request sends one call synchronously and returns the response, or nullopt on timeout.
+template<typename T, typename SRV>
+concept Client =
+  ServiceInterface<SRV>&&
+  requires(T client, const typename SRV::Request & req, std::chrono::nanoseconds timeout)
+    {
+  {client.WaitForService(timeout)}->std::same_as<bool>;
+  {client.Request(req, timeout)}->std::same_as<std::optional<typename SRV::Response>>;
+};
+
 template<typename T>
 concept HasCreateClientDualParam =
   requires(T comm, const std::string & name)
@@ -111,7 +125,7 @@ concept CommunicatorApp =
   requires(T comm, const std::string & name)
     {
   &T::Setup;
-  {comm.template GetClient<std_srvs::srv::Trigger>(name)};
+  comm.template GetClient<std_srvs::srv::Trigger>(name);
   {comm.DeleteClient(name)}->std::same_as<STATUS>;
   {comm.DeleterService(name)}->std::same_as<STATUS>;
 };

@@ -1,39 +1,43 @@
 #include <communication/Communicator.hpp>
 #include <std_srvs/srv/trigger.hpp>
-#include <chrono>
 #include <diagnostics/Status.hpp>
+#include <atomic>
+#include <chrono>
+#include <csignal>
+#include <thread>
 
+using namespace HBR::Communication;
+using namespace HBR::Diagnostics;
+using CommunicationBackend = RosCommunicatorApp;
 
-std_srvs::srv::Trigger::Response Service(const std_srvs::srv::Trigger::Request & req) {
-    (void) req;
-    std_srvs::srv::Trigger::Response res;
-    res.success = true;
-    res.message = "Whatzupp!";
-    return res;
+static std::atomic<bool> sRunning{true};
+static void onSignal(int) {sRunning = false;}
+
+static std_srvs::srv::Trigger::Response onTrigger(const std_srvs::srv::Trigger::Request &)
+{
+  std_srvs::srv::Trigger::Response res;
+  res.success = true;
+  res.message = "Whatzupp!";
+  return res;
 }
 
 int main(int argc, char ** argv)
 {
-  using namespace HBR::Communication;
+  std::signal(SIGINT, onSignal);
+  std::signal(SIGTERM, onSignal);
 
   Communicator comm;
 
-  if (comm.InstallCommunicatorApp<RosCommunicatorApp>("ros") != OK) {
-    return -1;
-  }
+  if (comm.InstallCommunicatorApp<CommunicationBackend>("ros") != OK) {return -1;}
 
-  RosCommunicatorApp * app = comm.GetCommunicatorApp<RosCommunicatorApp>("ros");
-
-  if (app == nullptr) {
-    return -1;
-  }
+  auto * app = comm.GetCommunicatorApp<CommunicationBackend>("ros");
+  if (app == nullptr) {return -1;}
 
   app->Setup(argc, argv);
   app->Login("service");
+  app->CreateService<std_srvs::srv::Trigger>("/trigger", onTrigger);
 
-  app->CreateService<std_srvs::srv::Trigger>("/trigger", &Service);
-
-  while (rclcpp::ok()) {
+  while (sRunning) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 

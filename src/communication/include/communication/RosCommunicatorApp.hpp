@@ -2,12 +2,69 @@
 #include <communication/Concepts.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <future>
-#include <thread>
+#include <memory>
 #include <mutex>
+#include <optional>
+#include <thread>
 #include <unordered_map>
 
 namespace HBR::Communication
 {
+
+// ---------------------------------------------------------------------------
+// RosPublisher<MSG> — adapter satisfying Publisher<RosPublisher<MSG>, MSG>.
+// Returned by GetPublisher<MSG>(); nodes call Publish() without touching rclcpp.
+// ---------------------------------------------------------------------------
+template<typename MSG>
+class RosPublisher
+{
+public:
+  explicit RosPublisher(typename rclcpp::Publisher<MSG>::SharedPtr pub)
+  : pPub(std::move(pub)) {}
+
+  STATUS Publish(const MSG & msg)
+  {
+    pPub->publish(msg);
+    return OK;
+  }
+
+private:
+  typename rclcpp::Publisher<MSG>::SharedPtr pPub;
+};
+
+// ---------------------------------------------------------------------------
+// RosClient<SRV> — adapter satisfying Client<RosClient<SRV>, SRV>.
+// WaitForService / Request are the only APIs nodes should call.
+// ---------------------------------------------------------------------------
+template<typename SRV>
+class RosClient
+{
+public:
+  explicit RosClient(typename rclcpp::Client<SRV>::SharedPtr client)
+  : pClient(std::move(client)) {}
+
+  bool WaitForService(std::chrono::nanoseconds timeout)
+  {
+    return pClient->wait_for_service(timeout);
+  }
+
+  std::optional<typename SRV::Response> Request(
+    const typename SRV::Request & req,
+    std::chrono::nanoseconds timeout)
+  {
+    auto future = pClient->async_send_request(
+      std::make_shared<typename SRV::Request>(req));
+    if (future.wait_for(timeout) != std::future_status::ready) {return std::nullopt;}
+    return *future.get();
+  }
+
+private:
+  typename rclcpp::Client<SRV>::SharedPtr pClient;
+};
+
+// ---------------------------------------------------------------------------
+// RosCommunicatorApp
+// ---------------------------------------------------------------------------
 class RosCommunicatorApp
 {
 public:
@@ -23,16 +80,17 @@ public:
   STATUS CreatePublisher(const std::string & name)
   {
     if (!pNode) {return UNINITIALIZED;}
-    publishers[name] = pNode->create_publisher<MSG>(name, 10);
+    publishers[name] = std::make_shared<RosPublisher<MSG>>(
+      pNode->create_publisher<MSG>(name, 10));
     return OK;
   }
 
   template<typename MSG>
-  rclcpp::Publisher<MSG>::SharedPtr GetPublisher(const std::string & name)
+  std::shared_ptr<RosPublisher<MSG>> GetPublisher(const std::string & name)
   {
     auto it = publishers.find(name);
     if (!pNode || it == publishers.end()) {return nullptr;}
-    return std::static_pointer_cast<rclcpp::Publisher<MSG>>(it->second);
+    return std::static_pointer_cast<RosPublisher<MSG>>(it->second);
   }
 
   template<typename MSG>
@@ -40,7 +98,7 @@ public:
   {
     if (!pNode) {return UNINITIALIZED;}
     subscribers[name] = pNode->create_subscription<MSG>(
-                name, 10,
+      name, 10,
       [cb](const MSG & msg) {cb(msg);});
     return OK;
   }
@@ -52,16 +110,17 @@ public:
   STATUS CreateClient(const std::string & name)
   {
     if (!pNode) {return UNINITIALIZED;}
-    clients[name] = pNode->create_client<SRV>(name);
+    clients[name] = std::make_shared<RosClient<SRV>>(
+      pNode->create_client<SRV>(name));
     return OK;
   }
 
   template<ServiceInterface SRV>
-  rclcpp::Client<SRV>::SharedPtr GetClient(const std::string & name)
+  std::shared_ptr<RosClient<SRV>> GetClient(const std::string & name)
   {
     auto it = clients.find(name);
     if (!pNode || it == clients.end()) {return nullptr;}
-    return std::static_pointer_cast<rclcpp::Client<SRV>>(it->second);
+    return std::static_pointer_cast<RosClient<SRV>>(it->second);
   }
 
   template<ServiceInterface SRV>
@@ -71,7 +130,7 @@ public:
   {
     if (!pNode) {return UNINITIALIZED;}
     services[name] = pNode->create_service<SRV>(
-                name,
+      name,
       [rcb](typename SRV::Request::SharedPtr req,
       typename SRV::Response::SharedPtr res)
       {*res = rcb(*req);});
@@ -96,9 +155,10 @@ private:
   rclcpp::CallbackGroup::SharedPtr sharedGroup;
   rclcpp::CallbackGroup::SharedPtr clientGroup;
 
-  std::unordered_map<std::string, rclcpp::PublisherBase::SharedPtr> publishers;
+  // Type-erased storage — publishers hold RosPublisher<MSG>, clients hold RosClient<SRV>.
+  std::unordered_map<std::string, std::shared_ptr<void>> publishers;
   std::unordered_map<std::string, rclcpp::SubscriptionBase::SharedPtr> subscribers;
-  std::unordered_map<std::string, rclcpp::ClientBase::SharedPtr> clients;
+  std::unordered_map<std::string, std::shared_ptr<void>> clients;
   std::unordered_map<std::string, rclcpp::ServiceBase::SharedPtr> services;
 };
 

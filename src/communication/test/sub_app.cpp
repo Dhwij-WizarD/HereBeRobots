@@ -1,19 +1,27 @@
 #include <communication/Communicator.hpp>
 #include <std_msgs/msg/string.hpp>
-#include <rclcpp/rclcpp.hpp>
+#include <rclcpp/logging.hpp>
+#include <atomic>
 #include <chrono>
+#include <csignal>
 #include <thread>
+
+using namespace HBR::Communication;
+using namespace HBR::Diagnostics;
+using CommunicationBackend = RosCommunicatorApp;
+
+static std::atomic<bool> sRunning{true};
+static void onSignal(int) {sRunning = false;}
 
 int main(int argc, char ** argv)
 {
-  using namespace HBR::Communication;
-  using HBR::Diagnostics::STATUS;
-  using HBR::Diagnostics::OK;
+  std::signal(SIGINT, onSignal);
+  std::signal(SIGTERM, onSignal);
 
   Communicator comm;
-  comm.InstallCommunicatorApp<RosCommunicatorApp>("ros");
+  comm.InstallCommunicatorApp<CommunicationBackend>("ros");
 
-  auto * app = comm.GetCommunicatorApp<RosCommunicatorApp>("ros");
+  auto * app = comm.GetCommunicatorApp<CommunicationBackend>("ros");
   app->Setup(argc, argv);
   app->Login("sub_node");
 
@@ -23,10 +31,9 @@ int main(int argc, char ** argv)
     };
   app->CreateSubscriber<std_msgs::msg::String>("/hbr/test/chatter", cb);
 
-  while (rclcpp::ok()) {
+  while (sRunning) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 
-  // app->Logout(); Logs out on destruction.
   return 0;
 }

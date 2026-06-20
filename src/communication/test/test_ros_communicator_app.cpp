@@ -143,7 +143,7 @@ TEST_F(RosCommunicatorAppTest, PublisherSendsMessage)
   msg.data = kValue;
   auto pub = gApp->GetPublisher<std_msgs::msg::Int32>("/pubsub_test/pub");
   ASSERT_NE(pub, nullptr);
-  pub->publish(msg);
+  pub->Publish(msg);
 
   auto status = future.wait_for(2s);
 

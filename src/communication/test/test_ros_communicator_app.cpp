@@ -12,8 +12,9 @@ using HBR::Communication::RosCommunicatorApp;
 using namespace HBR::Diagnostics;
 using namespace std::chrono_literals;
 
-// One app per process — owns the rclcpp context via Setup().
-// All tests share it; Login/Logout provide per-test node isolation.
+// Shared app for all tests. Login/Logout provide per-test node isolation.
+// Multiple RosCommunicatorApp instances are safe — RclcppHandle manages the
+// rclcpp context via reference counting (see RclcppHandle tests below).
 static RosCommunicatorApp * gApp = nullptr;
 
 // ─── Fixture ──────────────────────────────────────────────────────────────────
@@ -227,6 +228,60 @@ TEST_F(RosCommunicatorAppTest, ServiceRoundTrip)
   EXPECT_EQ(response->message, std::string("on"));
 }
 
+// ─── RclcppHandle ─────────────────────────────────────────────────────────────
+// gApp already holds refcount = 1 (Setup called in main).
+// Each test below creates additional apps, verifies correct behaviour, and
+// must leave the refcount exactly as it found it.
+
+TEST(RclcppHandle, SetupIsIdempotent)
+{
+  // Calling Setup() twice on the same instance must not double-acquire.
+  // If it did, ~app would decrement only once and the refcount would leak,
+  // eventually preventing rclcpp::shutdown from being called at process exit.
+  RosCommunicatorApp app;
+  EXPECT_EQ(app.Setup(0, nullptr), OK);
+  EXPECT_EQ(app.Setup(0, nullptr), OK);
+  EXPECT_EQ(app.Login("rclcpp_handle_idempotent"), OK);
+  EXPECT_EQ(app.Logout(), OK);
+  // ~app: one release (not two) → refcount returns to 1
+}
+
+TEST(RclcppHandle, SecondSetupIsNoOp)
+{
+  // A second app calling Setup() must not re-call rclcpp::init (which would
+  // throw). Functional use of the second app must work normally.
+  RosCommunicatorApp app;
+  EXPECT_EQ(app.Setup(0, nullptr), OK);
+  EXPECT_EQ(app.Login("rclcpp_handle_second"), OK);
+  EXPECT_EQ(app.CreatePublisher<std_msgs::msg::Int32>("/rclcpp_handle/second"), OK);
+  EXPECT_NE(app.GetPublisher<std_msgs::msg::Int32>("/rclcpp_handle/second"), nullptr);
+  EXPECT_EQ(app.Logout(), OK);
+  // ~app: refcount 2→1, no shutdown
+}
+
+TEST(RclcppHandle, FirstDestroyedDoesNotShutdownContext)
+{
+  // Destroy an inner app while an outer app is still alive.
+  // The context must remain live so the outer app keeps working.
+  RosCommunicatorApp outer;
+  EXPECT_EQ(outer.Setup(0, nullptr), OK);
+  EXPECT_EQ(outer.Login("rclcpp_handle_outer"), OK);
+  EXPECT_EQ(outer.CreatePublisher<std_msgs::msg::Int32>("/rclcpp_handle/outer"), OK);
+
+  {
+    RosCommunicatorApp inner;
+    EXPECT_EQ(inner.Setup(0, nullptr), OK);
+    EXPECT_EQ(inner.Login("rclcpp_handle_inner"), OK);
+    EXPECT_EQ(inner.CreatePublisher<std_msgs::msg::Int32>("/rclcpp_handle/inner"), OK);
+    // ~inner: refcount 3→2, rclcpp::shutdown NOT called
+  }
+
+  // outer must remain fully functional after inner was destroyed
+  EXPECT_NE(outer.GetPublisher<std_msgs::msg::Int32>("/rclcpp_handle/outer"), nullptr);
+  EXPECT_EQ(outer.Logout(), OK);
+  // ~outer: refcount 2→1, no shutdown. gApp still holds the last reference.
+}
+
 // ─── Entry point ──────────────────────────────────────────────────────────────
 
 int main(int argc, char ** argv)
@@ -234,7 +289,7 @@ int main(int argc, char ** argv)
   Communicator comm;
   comm.InstallCommunicatorApp<RosCommunicatorApp>("ros");
   gApp = comm.GetCommunicatorApp<RosCommunicatorApp>("ros");
-  gApp->Setup(argc, argv);   // rclcpp::init() — one context for the whole binary
+  gApp->Setup(argc, argv);   // acquires rclcpp context (refcount → 1)
 
   ::testing::InitGoogleTest(&argc, argv);
   int result = RUN_ALL_TESTS();

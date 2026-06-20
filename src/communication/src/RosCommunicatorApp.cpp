@@ -1,20 +1,48 @@
 #include <communication/RosCommunicatorApp.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <mutex>
+
+namespace
+{
+std::mutex gRclcppMtx;
+int gRclcppRefCount = 0;
+}
 
 namespace HBR::Communication
 {
 using namespace Diagnostics;
 
+void RosCommunicatorApp::RclcppHandle::acquire(int argc, char ** argv)
+{
+  std::lock_guard<std::mutex> lock(gRclcppMtx);
+  if (gRclcppRefCount++ == 0) {
+    rclcpp::init(argc, argv);
+  }
+}
+
+void RosCommunicatorApp::RclcppHandle::release()
+{
+  std::lock_guard<std::mutex> lock(gRclcppMtx);
+  if (--gRclcppRefCount == 0) {
+    rclcpp::shutdown();
+  }
+}
+
 STATUS RosCommunicatorApp::Setup(int argc, char ** argv)
 {
-  rclcpp::init(argc, argv);
+  if (!setupCalled) {
+    RclcppHandle::acquire(argc, argv);
+    setupCalled = true;
+  }
   return OK;
 }
 
 RosCommunicatorApp::~RosCommunicatorApp()
 {
   Logout();
-  rclcpp::shutdown();
+  if (setupCalled) {
+    RclcppHandle::release();
+  }
 }
 
 STATUS RosCommunicatorApp::Login(const std::string & id)

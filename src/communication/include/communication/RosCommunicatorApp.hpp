@@ -167,9 +167,22 @@ public:
   STATUS DeleterService(const std::string & name);
 
 private:
+  // Singleton that reference-counts rclcpp::init / rclcpp::shutdown across all
+  // RosCommunicatorApp instances. First acquire() calls init; last release() calls
+  // shutdown. Safe to create and destroy multiple apps in any order.
+  class RclcppHandle
+  {
+public:
+    static void acquire(int argc, char ** argv);
+    static void release();
+    RclcppHandle() = delete;
+  };
+
   enum class ThreadState { Idle, Running };
 
   void Run();
+
+  bool setupCalled{false};
 
   std::thread t;
   std::mutex mtx;

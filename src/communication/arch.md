@@ -276,6 +276,27 @@ services    : unordered_map<string, ServiceBase::SharedPtr>
 `static_pointer_cast`. Type safety is the caller's responsibility (same name,
 same type at creation and retrieval).
 
+### RclcppHandle — rclcpp context lifecycle
+
+`rclcpp::init` and `rclcpp::shutdown` must be called exactly once per process,
+in that order. `RclcppHandle` is a private static singleton nested inside
+`RosCommunicatorApp` that manages this via reference counting:
+
+```
+RclcppHandle::acquire(argc, argv)  — called by Setup(); if refcount was 0,
+                                     calls rclcpp::init then increments
+RclcppHandle::release()            — called by ~RosCommunicatorApp(); decrements;
+                                     if refcount reaches 0, calls rclcpp::shutdown
+```
+
+This makes it safe to create and destroy multiple `RosCommunicatorApp` instances
+in any order. The first `Setup()` call initialises the context; the last
+destructor shuts it down. Calling `Setup()` twice on the same instance is a
+no-op (guarded by `setupCalled`).
+
+The shared state (mutex + refcount) lives in an anonymous namespace in
+`RosCommunicatorApp.cpp`, invisible to the rest of the codebase.
+
 ### AsyncRequest
 
 `RosClient::AsyncRequest` fires a detached thread that waits on the future and
@@ -287,9 +308,6 @@ allow calling non-const future methods.
 
 ## Process-level invariants
 
-- `rclcpp::init` / `rclcpp::shutdown` must be paired. Two consecutive inits or
-  shutdowns are not allowed.
-- Exactly one `RosCommunicatorApp` per process should call `Setup()`.
 - Per-test isolation: one global `Communicator` in `main()` of test executables;
   each test suite uses `Login`/`Logout` for a fresh node name.
 
